@@ -14,6 +14,8 @@ def selector(file_path: str) -> int:
         return docx_pages_count(file_path)
     if extension == 'txt':
         return txt_page_count(file_path)
+    if extension == 'txt':
+        return rtf_page_count(file_path)
     return -1
 
 
@@ -87,7 +89,7 @@ def txt_page_count(file_path: str, lines_per_page: int = 50) -> int:
         return -1
 
 
-def count_expected_rtf_pages(file_path: str) -> int:
+def rtf_page_count(file_path: str) -> int:
     """
     Returns number of page in Word RTF file based on the '\page' control word.
 
