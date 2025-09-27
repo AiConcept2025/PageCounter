@@ -1,3 +1,6 @@
+"""
+Utilities to calculate number of page in document
+"""
 import os
 from PyPDF2 import PdfReader
 
