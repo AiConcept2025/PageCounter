@@ -4,6 +4,7 @@ Utilities to calculate number of page in document
 import os
 from PyPDF2 import PdfReader
 from docx import Document
+from PIL import Image
 
 
 def selector(file_path: str) -> int:
@@ -16,6 +17,8 @@ def selector(file_path: str) -> int:
         return txt_page_count(file_path)
     if extension == 'txt':
         return rtf_page_count(file_path)
+    if extension == 'tiff':
+        return tiff_pages_count(file_path)
     return -1
 
 
@@ -112,6 +115,34 @@ def rtf_page_count(file_path: str) -> int:
     except Exception as e:
         print(f'An error occurred: {e}')
         return None
+
+
+def tiff_pages_count(file_path: str) -> int:
+    """
+    Counts the number of pages in a multi-page TIFF file.
+
+    Args:
+        file_path (str): The path to the TIFF file.
+
+    Returns:
+        int: The number of pages in the TIFF file, or 0 if an error occurs.
+    """
+    try:
+        img = Image.open(file_path)
+        page_count = 0
+        while True:
+            try:
+                img.seek(page_count)
+                page_count += 1
+            except EOFError:
+                break
+        return page_count
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return -1
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return -1
 
 
 if __name__ == '__main__':
