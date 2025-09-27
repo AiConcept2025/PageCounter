@@ -10,19 +10,23 @@ from PIL import Image
 def selector(file_path: str) -> int:
     _, extension = os.path.splitext(file_path)
     if extension == 'pdf':
-        return pdf_page_count(file_path)
+        return pdf_pages_count(file_path)
     if extension == 'doc' or extension == 'docx':
         return docx_pages_count(file_path)
     if extension == 'txt':
-        return txt_page_count(file_path)
-    if extension == 'txt':
-        return rtf_page_count(file_path)
+        return txt_pages_count(file_path)
+    if extension == 'rtf':
+        return rtf_pages_count(file_path)
     if extension == 'tiff':
         return tiff_pages_count(file_path)
+    if extension == 'png':
+        return png_frames_count(file_path)
+    if extension == 'jpg':
+        return gif_frames_count(file_path)
     return -1
 
 
-def pdf_page_count(file_path: str) -> int:
+def pdf_pages_count(file_path: str) -> int:
     """
     Returns number of pages in PDF doc
 
@@ -60,7 +64,7 @@ def docx_pages_count(file_path: str) -> int:
     return page_count
 
 
-def txt_page_count(file_path: str, lines_per_page: int = 50) -> int:
+def txt_pages_count(file_path: str, lines_per_page: int = 50) -> int:
     """
     Counts the number of 'pages' in a plain text file based on a specified
     number of lines per page.
@@ -92,7 +96,7 @@ def txt_page_count(file_path: str, lines_per_page: int = 50) -> int:
         return -1
 
 
-def rtf_page_count(file_path: str) -> int:
+def rtf_pages_count(file_path: str) -> int:
     """
     Returns number of page in Word RTF file based on the '\page' control word.
 
@@ -139,6 +143,52 @@ def tiff_pages_count(file_path: str) -> int:
         return page_count
     except FileNotFoundError:
         print(f"Error: File not found at {file_path}")
+        return -1
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return -1
+
+
+def png_frames_count(file_path: str) -> int:
+    """
+    Counts the number of pages in a multi-page TIFF file.
+
+    Args:
+        file_path (str): The path to the TIFF file.
+
+    Returns:
+        int: The number of pages in the TIFF file, or 0 if an error occurs.
+    """
+    try:
+        img = Image.open(file_path)
+        frame_count = 0
+        while True:
+            try:
+                img.seek(frame_count)
+                frame_count += 1
+            except EOFError:
+                break
+        return frame_count
+    except Exception as e:
+        print(f"Error processing {file_path}: {e}")
+        return -1
+
+
+def gif_frames_count(file_path: str) -> int:
+    """
+    Counts the number of frames (pages) in a GIF image.
+
+    Args:
+        gif_path (str): The path to the GIF file.
+
+    Returns:
+        int: The number of frames in the GIF.
+    """
+    try:
+        img = Image.open(file_path)
+        return img.n_frames
+    except FileNotFoundError:
+        print(f"Error: The file '{file_path}' was not found.")
         return -1
     except Exception as e:
         print(f"An error occurred: {e}")
