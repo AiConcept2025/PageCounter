@@ -87,5 +87,30 @@ def txt_page_count(file_path: str, lines_per_page: int = 50) -> int:
         return -1
 
 
+def count_expected_rtf_pages(file_path: str) -> int:
+    """
+    Returns number of page in Word RTF file based on the '\page' control word.
+
+    Args:
+        file_path (str): The path to the text file.
+
+    Returns:
+        int: The calculated number of pages.
+    """
+    try:
+        # RTF often uses latin-1
+        with open(file_path, 'r', encoding='latin-1') as f:
+            content = f.read()
+            # Count occurrences of '\page' and add 1 for the first page
+            page_count = content.count('\\page') + 1
+            return page_count
+    except FileNotFoundError:
+        print(f'Error: File not found at {file_path}')
+        return None
+    except Exception as e:
+        print(f'An error occurred: {e}')
+        return None
+
+
 if __name__ == '__main__':
     selector('some_page_path')
