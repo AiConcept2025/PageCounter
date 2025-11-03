@@ -1,28 +1,31 @@
 """
-Utilities to calculate number of page in document
+Utilities to calculate number of pages and characters in documents
 """
 import os
 from PyPDF2 import PdfReader
 from docx import Document
 from PIL import Image
+import fitz  # PyMuPDF
+from striprtf.striprtf import rtf_to_text
 
 
 def selector(file_path: str) -> int:
     _, extension = os.path.splitext(file_path)
-    if extension == 'pdf':
+    extension = extension.lower()
+    if extension == '.pdf':
         return pdf_pages_count(file_path)
-    if extension == 'doc' or extension == 'docx':
+    if extension == '.doc' or extension == '.docx':
         return docx_pages_count(file_path)
-    if extension == 'txt':
+    if extension == '.txt':
         return txt_pages_count(file_path)
-    if extension == 'rtf':
+    if extension == '.rtf':
         return rtf_pages_count(file_path)
-    if extension == 'tiff':
+    if extension == '.tiff':
         return tiff_pages_count(file_path)
-    if extension == 'png':
+    if extension == '.png':
         return png_frames_count(file_path)
-    if extension == 'jpg':
-        return gif_frames_count(file_path)
+    if extension == '.jpg' or extension == '.jpeg':
+        return jpg_frames_count(file_path)
     return -1
 
 
@@ -37,7 +40,7 @@ def pdf_pages_count(file_path: str) -> int:
         int: The calculated number of pages.
     """
     try:
-        with open('your_pdf_file.pdf', 'rb') as pdf_file:
+        with open(file_path, 'rb') as pdf_file:
             pdf_reader = PdfReader(pdf_file)
             num_pages = len(pdf_reader.pages)
             return num_pages
@@ -98,7 +101,7 @@ def txt_pages_count(file_path: str, lines_per_page: int = 50) -> int:
 
 def rtf_pages_count(file_path: str) -> int:
     """
-    Returns number of page in Word RTF file based on the '\page' control word.
+    Returns number of page in Word RTF file based on the '\\page' control word.
 
     Args:
         file_path (str): The path to the text file.
@@ -115,10 +118,10 @@ def rtf_pages_count(file_path: str) -> int:
             return page_count
     except FileNotFoundError:
         print(f'Error: File not found at {file_path}')
-        return None
+        return -1
     except Exception as e:
         print(f'An error occurred: {e}')
-        return None
+        return -1
 
 
 def tiff_pages_count(file_path: str) -> int:
@@ -195,5 +198,162 @@ def gif_frames_count(file_path: str) -> int:
         return -1
 
 
+def jpg_frames_count(file_path: str) -> int:
+    """
+    Counts the number of frames in a JPG/JPEG image (typically 1).
+
+    Args:
+        file_path (str): The path to the JPG file.
+
+    Returns:
+        int: The number of frames in the JPG (usually 1).
+    """
+    try:
+        img = Image.open(file_path)
+        # JPG files typically have 1 frame, but handle multi-frame if exists
+        try:
+            return img.n_frames
+        except AttributeError:
+            # If n_frames doesn't exist, it's a single-frame image
+            return 1
+    except FileNotFoundError:
+        print(f"Error: The file '{file_path}' was not found.")
+        return -1
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return -1
+
+
+# ============================================================================
+# CHARACTER COUNTING FUNCTIONS
+# ============================================================================
+
+def char_selector(file_path: str) -> int:
+    """
+    Routes to the appropriate character counting function based on file extension.
+
+    Args:
+        file_path (str): The path to the file.
+
+    Returns:
+        int: The total character count, or -1 on error.
+    """
+    _, extension = os.path.splitext(file_path)
+    extension = extension.lower()
+    if extension == '.pdf':
+        return pdf_char_count(file_path)
+    if extension == '.doc' or extension == '.docx':
+        return docx_char_count(file_path)
+    if extension == '.txt':
+        return txt_char_count(file_path)
+    if extension == '.rtf':
+        return rtf_char_count(file_path)
+    if extension in ['.tiff', '.png', '.jpg', '.jpeg', '.gif']:
+        print(f'Character counting for images requires OCR (not supported)')
+        return -1
+    return -1
+
+
+def txt_char_count(file_path: str) -> int:
+    """
+    Counts the total number of characters in a plain text file.
+
+    Args:
+        file_path (str): The path to the text file.
+
+    Returns:
+        int: The total character count (includes spaces, newlines, punctuation).
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+            return len(content)
+    except FileNotFoundError:
+        print(f'Error: File not found at {file_path}')
+        return -1
+    except Exception as e:
+        print(f'An error occurred: {e}')
+        return -1
+
+
+def pdf_char_count(file_path: str) -> int:
+    """
+    Counts the total number of characters in a PDF file using PyMuPDF.
+
+    Args:
+        file_path (str): The path to the PDF file.
+
+    Returns:
+        int: The total character count across all pages.
+    """
+    try:
+        doc = fitz.open(file_path)
+        total_chars = 0
+        for page in doc:
+            text = page.get_text()
+            total_chars += len(text)
+        doc.close()
+        return total_chars
+    except FileNotFoundError:
+        print(f'Error: The specified PDF file was not found: {file_path}')
+        return -1
+    except Exception as e:
+        print(f'An error occurred: {e}')
+        return -1
+
+
+def docx_char_count(file_path: str) -> int:
+    """
+    Counts the total number of characters in a Word document (paragraphs only).
+    Fast implementation - counts only paragraph text for maximum performance.
+
+    Args:
+        file_path (str): The path to the DOCX file.
+
+    Returns:
+        int: The total character count (paragraphs only).
+    """
+    try:
+        doc = Document(file_path)
+        total_chars = sum(len(paragraph.text) for paragraph in doc.paragraphs)
+        return total_chars
+    except FileNotFoundError:
+        print(f'Error: File not found at {file_path}')
+        return -1
+    except Exception as e:
+        print(f'An error occurred: {e}')
+        return -1
+
+
+def rtf_char_count(file_path: str) -> int:
+    """
+    Counts the total number of characters in an RTF file using striprtf.
+
+    Args:
+        file_path (str): The path to the RTF file.
+
+    Returns:
+        int: The total character count.
+    """
+    try:
+        with open(file_path, 'r', encoding='latin-1') as f:
+            rtf_content = f.read()
+        plain_text = rtf_to_text(rtf_content)
+        return len(plain_text)
+    except FileNotFoundError:
+        print(f'Error: File not found at {file_path}')
+        return -1
+    except Exception as e:
+        print(f'An error occurred: {e}')
+        return -1
+
+
 if __name__ == '__main__':
-    selector('some_page_path')
+    # Example usage
+    print("Page counting:")
+    page_count = selector('sample.pdf')
+    print(f"Pages: {page_count}")
+
+    print("\nCharacter counting:")
+    char_count = char_selector('sample.pdf')
+    print(f"Characters: {char_count}")
