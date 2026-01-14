@@ -4,34 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-**PageCounter** - Python utility library for counting pages/frames in document and image files.
+**PageCounter & CharCounter** - Python utility library for counting pages/frames and characters in document and image files. Used in the translation service for billing/pricing based on page and character counts.
 
-**Stack:** Python 3.x, PyPDF2, python-docx, Pillow (PIL)
+**Stack:** Python 3.x, PyMuPDF (fitz), python-docx, Pillow (PIL), striprtf, PyPDF2
 
-**Supported Formats:**
-- Documents: PDF, DOC/DOCX, TXT, RTF
-- Images: TIFF, PNG, JPG/JPEG (multi-frame/multi-page)
-
-## Architecture
-
-**Single-file utility** (`page_count.py`):
-- `selector(file_path)` - Main entry point that routes to format-specific handlers based on file extension
-- Format handlers return page count as `int` or `-1` on error
-- Each handler follows pattern: open file → count pages/frames → return count or -1
-
-**Key Design Patterns:**
-- Extension-based dispatch (case-insensitive)
-- Consistent error handling: return `-1` on errors, print error messages to stdout
-- Text files use line-based pagination (default 50 lines/page)
-- RTF uses `\page` control word counting
-- Multi-page images (TIFF/PNG/GIF) use PIL frame iteration via `seek()`
-
-**Known Issues:**
-- Line 26: `gif_frames_count()` called for JPG/JPEG (should likely be `jpg_frames_count()` or similar)
-- RTF handler returns `None` on error (inconsistent with other handlers returning `-1`)
-- DOCX page counting via page breaks may be inaccurate for complex layouts
-
-## Setup & Development
+## Commands
 
 ```bash
 # Install dependencies
@@ -41,18 +18,51 @@ pip install -r requirements.txt
 python page_count.py
 
 # Use as library
-from page_count import selector
-page_count = selector('/path/to/document.pdf')
+from page_count import selector, char_selector
+pages = selector('/path/to/document.pdf')
+chars = char_selector('/path/to/document.pdf')
 ```
 
-## Testing Approach
+## Architecture
 
-No test suite currently exists. When adding tests:
-- Test each format handler with valid files
-- Test error cases (missing files, corrupted files, unsupported formats)
-- Verify edge cases (empty files, single-page docs, multi-page TIFF)
-- Test `selector()` routing logic for all extensions (including case variations)
+**Single-file utility** (`page_count.py`) with two routing functions:
+
+| Function | Purpose | Returns |
+|----------|---------|---------|
+| `selector(file_path)` | Routes to page/frame counting | `int` (count) or `-1` on error |
+| `char_selector(file_path)` | Routes to character counting | `int` (count) or `-1` on error |
+
+**Supported Formats:**
+
+| Format | Page Counting | Char Counting | Library Used |
+|--------|---------------|---------------|--------------|
+| PDF | ✅ `pdf_pages_count()` | ✅ `pdf_char_count()` | PyMuPDF (fitz) |
+| DOC/DOCX | ✅ `docx_pages_count()` | ✅ `docx_char_count()` | python-docx |
+| TXT | ✅ `txt_pages_count()` | ✅ `txt_char_count()` | native |
+| RTF | ✅ `rtf_pages_count()` | ✅ `rtf_char_count()` | striprtf |
+| TIFF | ✅ `tiff_pages_count()` | ❌ (needs OCR) | Pillow |
+| PNG | ✅ `png_frames_count()` | ❌ (needs OCR) | Pillow |
+| JPG/JPEG | ✅ `jpg_frames_count()` | ❌ (needs OCR) | Pillow |
+| GIF | ✅ `gif_frames_count()` | ❌ (needs OCR) | Pillow |
+
+**Key Design Patterns:**
+- Extension-based dispatch (case-insensitive)
+- Consistent error handling: return `-1` on errors, print error messages to stdout
+- Text files use line-based pagination (default 50 lines/page)
+- RTF uses `\page` control word counting for pages, striprtf for character extraction
+- PDF uses PyMuPDF for both page counting and fast text extraction
+- Multi-page images (TIFF/PNG/GIF) use PIL frame iteration via `seek()` or `n_frames`
+- DOCX character counting uses paragraph text only (excludes headers/footers/tables for speed)
+
+**Known Limitations:**
+- DOCX page counting via page breaks may be inaccurate for complex layouts
+- DOCX char counting excludes headers, footers, and tables (by design for speed)
+- RTF char counting may have issues with multi-line table cells
+- Image character counting requires OCR (not implemented)
 
 ## Integration Context
 
-This module is located in `/server/app/app-counter/` within a larger translation service project. It's used as a utility for document processing workflows, likely for billing/pricing based on page counts.
+This module is located in `/server/app/app-counter/` within the Translator project. It provides document metrics for:
+- Billing calculations based on page/character counts
+- Document processing workflows
+- Translation pricing estimation
